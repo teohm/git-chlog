@@ -1,0 +1,279 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "time"
+
+class MergeRequest
+  attr_reader :id, :title, :date
+
+  def initialize(id:, title:, date:)
+    @id = id
+    @title = title
+    @date = Time.parse(date)
+  end
+end
+
+module CodeHosting
+  def self.build(repo_url)
+    if GitHub.matching_repo_url?(repo_url)
+      GitHub.new(repo_url)
+    else
+      raise "unsupported repo url: #{repo_url}"
+    end
+  end
+
+  class GitHub
+    attr_reader :repo_name
+
+    def self.matching_repo_url?(repo_url)
+      /github\.com/.match?(repo_url)
+    end
+
+    def initialize(github_repo_url)
+      @repo_name = extract_repo_name(github_repo_url)
+    end
+
+    def build_merge_request(raw_commit)
+      MergeRequest.new(
+        id: extract_pull_id(raw_commit[:subject]),
+        title: raw_commit[:body],
+        date: raw_commit[:date]
+      )
+    end
+
+    def is_merge_request?(raw_commit)
+      raw_commit[:subject].start_with?("Merge pull request")
+    end
+
+    def base_url
+      "https://github.com"
+    end
+
+    def merge_request_url(id)
+      [base_url, repo_name, "pull", id].join("/")
+    end
+
+    def diff_url(from:, to:)
+      [base_url, repo_name, "compare", "#{from}...#{to}"].join("/")
+    end
+
+    def tag_url(tag)
+      [base_url, repo_name, "tree", tag].join("/")
+    end
+
+    private
+
+      def extract_repo_name(repo_url)
+        /git@github.com:([^.]+).git/.match(repo_url)&.captures&.first
+      end
+
+      def extract_pull_id(commit_subject)
+        /#(\d+)/.match(commit_subject).captures.first
+      end
+  end
+end
+
+class Release
+  attr_reader :tag, :date
+  attr_accessor :prev_tag
+
+  def initialize(tag:, date:)
+    @tag = tag
+    @date = Time.parse(date)
+  end
+
+  def version_number
+    tag.sub("v", "")
+  end
+
+  def <=>(other)
+    date <=> other.date
+  end
+end
+
+module GitRepo
+  def self.origin_remote_url
+    `git remote get-url origin`.strip
+  end
+
+  def self.first_commit_sha
+    `git rev-list --max-parents=0 HEAD`.strip[0...9]
+  end
+
+  def self.prev_tag(current_tag)
+    `git log --format="%D" #{current_tag}~1`
+      .split("\n")
+      .select { |line| line.start_with?("tag:") }
+      .first
+      &.match(/tag: ([^,]+)/)&.captures&.first
+  end
+
+  def self.load_releases
+    LoadReleases.new(git_repo: self).call
+  end
+
+  def self.load_merged_requests(release, code_hosting)
+    LoadMergedRequests.new(
+      release: release, code_hosting: code_hosting
+    ).call
+  end
+
+  class LoadReleases
+    attr_reader :git_repo
+
+    def initialize(git_repo:)
+      @git_repo = git_repo
+    end
+
+    def call
+      raw_git_tag_data
+        .map { |release_params| Release.new(release_params) }
+        .map { |release|
+          release.prev_tag = git_repo.prev_tag(release.tag)
+          release
+        }
+        .sort
+        .reverse
+    end
+
+    private
+
+      def raw_git_tag_data
+        `git tag --format='%(refname:short)|%(creatordate:iso8601)'`
+          .split("\n")
+          .map { |line| Hash[[:tag, :date].zip(line.split("|"))] }
+      end
+  end
+
+  class LoadMergedRequests
+    attr_reader :release, :code_hosting
+
+    def initialize(release:, code_hosting:)
+      @release = release
+      @code_hosting = code_hosting
+    end
+
+    def call
+      raw_git_merge_commits
+        .select { |raw_commit| is_merge_request?(raw_commit) }
+        .map { |raw_commit| build_merge_request(raw_commit) }
+    end
+
+    private
+
+      def raw_git_merge_commits
+        `git log --merges --pretty="%aI|%s|%b" #{tag_range}`
+          .split("\n")
+          .map { |line| Hash[[:date, :subject, :body].zip(line.split("|"))] }
+          .select { |m| !m[:subject].nil? }
+      end
+
+      def tag_range
+        [release.tag, release.prev_tag].compact.join("...")
+      end
+
+      def is_merge_request?(raw_commit)
+        code_hosting.is_merge_request?(raw_commit)
+      end
+
+      def build_merge_request(raw_commit)
+        code_hosting.build_merge_request(raw_commit)
+      end
+  end
+end
+
+class IssueTracker
+  class PivotalTracker
+    def self.decorate_issue(text)
+      text.gsub(/#(\d+)/,
+        "[#\\1](https://www.pivotaltracker.com/story/show/\\1)")
+    end
+  end
+end
+
+class PrintChangeLog
+  attr_reader :code_hosting, :git_repo, :issue_tracker, :config
+
+  DEFAULT_CONFIG = {
+    title: "# Change Log",
+    diff_url_label: "Full Changelog"
+  }.freeze
+
+  def initialize(code_hosting:, git_repo:, issue_tracker:, config: {})
+    @code_hosting = code_hosting
+    @git_repo = git_repo
+    @issue_tracker = issue_tracker
+    @config = DEFAULT_CONFIG.merge(config)
+  end
+
+  def call
+    with_output do |out|
+      out.puts config[:title]
+
+      until releases.empty? do
+        release = releases.shift
+
+        print_release_heading(out, release)
+        out.puts
+
+        print_full_changelog_link(out, release)
+
+        merged_requests(release).each do |merge_request|
+          print_merged_request(out, merge_request)
+        end
+        out.puts
+      end
+    end
+  end
+
+  private
+
+    def print_release_heading(out, release)
+      out.puts("# [#{release.tag}](#{code_hosting.tag_url(release.tag)})")
+      out.puts("Released on #{format_date(release.date)}")
+    end
+
+    def print_full_changelog_link(out, release)
+      prev_tag = release.prev_tag || git_repo.first_commit_sha
+      out.puts(
+        "[#{config[:diff_url_label]}]"\
+        "(#{code_hosting.diff_url(from: prev_tag, to: release.tag)})"
+      )
+    end
+
+    def print_merged_request(out, merge_request)
+      out.puts(
+        "* " \
+        " #{format_date(merge_request.date)}" \
+        " - #{link_to_issue_tracker(merge_request.title)} " \
+        " [##{merge_request.id}]"\
+        "(#{code_hosting.merge_request_url(merge_request.id)})"
+      )
+    end
+
+    def format_date(date)
+      date.strftime("%F")
+    end
+
+    def link_to_issue_tracker(title)
+      issue_tracker.decorate_issue(title)
+    end
+
+    def releases
+      @_releases ||= git_repo.load_releases
+    end
+
+    def merged_requests(release)
+      git_repo.load_merged_requests(release, code_hosting)
+    end
+
+    def with_output
+      yield(STDOUT.to_io)
+    end
+end
+
+PrintChangeLog.new(
+  code_hosting: CodeHosting.build(GitRepo.origin_remote_url),
+  git_repo: GitRepo,
+  issue_tracker: IssueTracker::PivotalTracker
+).call
