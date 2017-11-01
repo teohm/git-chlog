@@ -229,7 +229,7 @@ class PrintChangeLog
   private
 
     def print_release_heading(out, release)
-      out.puts("# [#{release.tag}](#{code_hosting.tag_url(release.tag)})")
+      out.puts("## [#{release.tag}](#{code_hosting.tag_url(release.tag)})")
       out.puts("Released on #{format_date(release.date)}")
     end
 
