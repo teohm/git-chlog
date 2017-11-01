@@ -9,18 +9,19 @@ Gem::Specification.new do |spec|
   spec.authors       = ["Huiming Teo"]
   spec.email         = ["teohuiming@gmail.com"]
 
-  spec.summary       = %q{TODO: Write a short summary, because Rubygems requires one.}
-  spec.description   = %q{TODO: Write a longer description or delete this line.}
-  spec.homepage      = "TODO: Put your gem's website or public repo URL here."
+  spec.summary       = %q{Print changelog for PR-based git repo.}
+  spec.description   = %q{This gem provides a git custom command `git chlog` to print changelog with a list of merged pull-requests grouped by tags in a git repository.}
+  spec.homepage      = "https://github.com/teohm/git-chlog"
   spec.license       = "MIT"
 
-  # Prevent pushing this gem to RubyGems.org. To allow pushes either set the 'allowed_push_host'
-  # to allow pushing to a single host or delete this section to allow pushing to any host.
-  if spec.respond_to?(:metadata)
-    spec.metadata["allowed_push_host"] = "TODO: Set to 'http://mygemserver.com'"
-  else
-    raise "RubyGems 2.0 or newer is required to protect against " \
-      "public gem pushes."
+  if spec.respond_to?(:metadata=)
+    spec.metadata = {
+      "allowed_push_host" => "http://rubygems.org",
+      "bug_tracker_uri" => "http://github.com/teohm/git-chlog/issues",
+      "changelog_uri" => "https://github.com/teohm/git-chlog/blob/master/CHANGELOG.md",
+      "homepage_uri" => "https://github.com/teohm/git-chlog",
+      "source_code_uri" => "https://github.com/teohm/git-chlog"
+    }
   end
 
   spec.files         = `git ls-files -z`.split("\x0").reject do |f|
