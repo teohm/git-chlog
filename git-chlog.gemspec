@@ -16,7 +16,7 @@ Gem::Specification.new do |spec|
 
   if spec.respond_to?(:metadata=)
     spec.metadata = {
-      "allowed_push_host" => "http://rubygems.org",
+      "allowed_push_host" => "https://rubygems.org",
       "bug_tracker_uri" => "http://github.com/teohm/git-chlog/issues",
       "changelog_uri" => "https://github.com/teohm/git-chlog/blob/master/CHANGELOG.md",
       "homepage_uri" => "https://github.com/teohm/git-chlog",
