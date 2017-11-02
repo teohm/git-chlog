@@ -74,12 +74,18 @@ module CodeHosting
 end
 
 class Release
-  attr_reader :tag, :date
+  attr_reader :tag, :git_ref, :label, :date
   attr_accessor :prev_tag
 
-  def initialize(tag:, date:)
+  def self.build_head(tag: "HEAD", label: "Unreleased")
+    Release.new(tag: tag, date: Time.now, git_ref: "HEAD", label: label)
+  end
+
+  def initialize(tag:, date:, git_ref: nil, label: nil)
     @tag = tag
-    @date = Time.parse(date)
+    @git_ref = git_ref || tag
+    @label = label || tag
+    @date = Time.parse(date.to_s)
   end
 
   def version_number
@@ -169,7 +175,7 @@ module GitRepo
       end
 
       def tag_range
-        [release.tag, release.prev_tag].compact.join("...")
+        [release.git_ref, release.prev_tag].compact.join("...")
       end
 
       def is_merge_request?(raw_commit)
@@ -229,8 +235,8 @@ class PrintChangeLog
   private
 
     def print_release_heading(out, release)
-      out.puts("## [#{release.tag}](#{code_hosting.tag_url(release.tag)})")
-      out.puts("Released on #{format_date(release.date)}")
+      out.puts("## [#{release.label}](#{code_hosting.tag_url(release.tag)})")
+      out.puts("#{format_date(release.date)}")
     end
 
     def print_full_changelog_link(out, release)
