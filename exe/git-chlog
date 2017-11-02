@@ -256,7 +256,6 @@ class PrintChangeLog
 
     def print_release_heading(out, release)
       out.puts("## [#{release.label}](#{code_hosting.tag_url(release.tag)})")
-      out.puts("#{format_date(release.date)}")
     end
 
     def print_full_changelog_link(out, release)

@@ -1,6 +1,11 @@
 # Change Log
+## [v0.2.0](https://github.com/teohm/git-chlog/tree/v0.2.0)
+
+[Full Changelog](https://github.com/teohm/git-chlog/compare/v0.1.0...v0.2.0)
+*  2017-11-02 - Fix GitRepo#prev_tag to handle HEAD release  [#5](https://github.com/teohm/git-chlog/pull/5)
+*  2017-11-02 - Add --prepare-release to include unreleased merges when prepare release  [#4](https://github.com/teohm/git-chlog/pull/4)
+
 ## [v0.1.0](https://github.com/teohm/git-chlog/tree/v0.1.0)
-Released on 2017-11-01
 
 [Full Changelog](https://github.com/teohm/git-chlog/compare/6bcc2fb6e...v0.1.0)
 *  2017-11-01 - fix :allowed_push_host metadata in gemspec  [#3](https://github.com/teohm/git-chlog/pull/3)
