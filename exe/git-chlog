@@ -77,7 +77,7 @@ class Release
   attr_reader :tag, :git_ref, :label, :date
   attr_accessor :prev_tag
 
-  def self.build_head(tag: "HEAD", label: "Unreleased")
+  def self.build_head(tag:, label:)
     Release.new(tag: tag, date: Time.now, git_ref: "HEAD", label: label)
   end
 
@@ -98,6 +98,12 @@ class Release
 end
 
 class GitRepo
+  attr_reader :options
+
+  def initialize(options = {})
+    @options = options.dup
+  end
+
   def origin_remote_url
     `git remote get-url origin`.strip
   end
@@ -115,7 +121,10 @@ class GitRepo
   end
 
   def load_releases
-    LoadReleases.new(git_repo: self).call
+    LoadReleases.new(
+      git_repo: self,
+      head_release_tag: options[:prepare_release]
+    ).call
   end
 
   def load_merged_requests(release, code_hosting)
@@ -125,10 +134,11 @@ class GitRepo
   end
 
   class LoadReleases
-    attr_reader :git_repo
+    attr_reader :git_repo, :head_release_tag
 
-    def initialize(git_repo:)
+    def initialize(git_repo:, head_release_tag:)
       @git_repo = git_repo
+      @head_release_tag = head_release_tag
     end
 
     def call
@@ -140,10 +150,19 @@ class GitRepo
         }
         .sort
         .reverse
-        .unshift(Release.build_head)
+        .unshift(head_release)
+        .compact
     end
 
     private
+
+      def head_release
+        if head_release_tag
+          Release.build_head(tag: head_release_tag, label: head_release_tag)
+        else
+          nil
+        end
+      end
 
       def raw_git_tag_data
         `git tag --format='%(refname:short)|%(creatordate:iso8601)'`
@@ -279,7 +298,27 @@ class PrintChangeLog
     end
 end
 
-git_repo = GitRepo.new
+options = {
+  prepare_release: false
+}
+
+require 'optparse'
+OptionParser.new do |opts|
+  opts.banner = "Usage: git chlog [options]"
+
+  opts.on(
+    "--prepare-release=[TAG]",
+    "Add unreleased changes when preparing new release") do |tag|
+    options[:prepare_release] = tag || "HEAD"
+  end
+
+  opts.on("-h", "--help", "Prints this help") do
+    puts opts
+    exit
+  end
+end.parse!
+
+git_repo = GitRepo.new(options)
 PrintChangeLog.new(
   code_hosting: CodeHosting.build(git_repo.origin_remote_url),
   git_repo: git_repo,
