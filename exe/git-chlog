@@ -97,16 +97,16 @@ class Release
   end
 end
 
-module GitRepo
-  def self.origin_remote_url
+class GitRepo
+  def origin_remote_url
     `git remote get-url origin`.strip
   end
 
-  def self.first_commit_sha
+  def first_commit_sha
     `git rev-list --max-parents=0 HEAD`.strip[0...9]
   end
 
-  def self.prev_tag(current_tag)
+  def prev_tag(current_tag)
     `git log --format="%D" #{current_tag}~1`
       .split("\n")
       .select { |line| line.start_with?("tag:") }
@@ -114,11 +114,11 @@ module GitRepo
       &.match(/tag: ([^,]+)/)&.captures&.first
   end
 
-  def self.load_releases
+  def load_releases
     LoadReleases.new(git_repo: self).call
   end
 
-  def self.load_merged_requests(release, code_hosting)
+  def load_merged_requests(release, code_hosting)
     LoadMergedRequests.new(
       release: release, code_hosting: code_hosting
     ).call
@@ -279,8 +279,9 @@ class PrintChangeLog
     end
 end
 
+git_repo = GitRepo.new
 PrintChangeLog.new(
-  code_hosting: CodeHosting.build(GitRepo.origin_remote_url),
-  git_repo: GitRepo,
+  code_hosting: CodeHosting.build(git_repo.origin_remote_url),
+  git_repo: git_repo,
   issue_tracker: IssueTracker::PivotalTracker
 ).call
