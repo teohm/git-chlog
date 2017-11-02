@@ -140,6 +140,7 @@ module GitRepo
         }
         .sort
         .reverse
+        .unshift(Release.build_head)
     end
 
     private
