@@ -144,14 +144,14 @@ class GitRepo
     def call
       raw_git_tag_data
         .map { |release_params| Release.new(release_params) }
-        .map { |release|
-          release.prev_tag = git_repo.prev_tag(release.tag)
-          release
-        }
         .sort
         .reverse
         .unshift(head_release)
         .compact
+        .map { |release|
+          release.prev_tag = git_repo.prev_tag(release.git_ref)
+          release
+        }
     end
 
     private
