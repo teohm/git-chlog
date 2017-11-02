@@ -74,12 +74,18 @@ module CodeHosting
 end
 
 class Release
-  attr_reader :tag, :date
+  attr_reader :tag, :git_ref, :label, :date
   attr_accessor :prev_tag
 
-  def initialize(tag:, date:)
+  def self.build_head(tag:, label:)
+    Release.new(tag: tag, date: Time.now, git_ref: "HEAD", label: label)
+  end
+
+  def initialize(tag:, date:, git_ref: nil, label: nil)
     @tag = tag
-    @date = Time.parse(date)
+    @git_ref = git_ref || tag
+    @label = label || tag
+    @date = Time.parse(date.to_s)
   end
 
   def version_number
@@ -91,16 +97,22 @@ class Release
   end
 end
 
-module GitRepo
-  def self.origin_remote_url
+class GitRepo
+  attr_reader :options
+
+  def initialize(options = {})
+    @options = options.dup
+  end
+
+  def origin_remote_url
     `git remote get-url origin`.strip
   end
 
-  def self.first_commit_sha
+  def first_commit_sha
     `git rev-list --max-parents=0 HEAD`.strip[0...9]
   end
 
-  def self.prev_tag(current_tag)
+  def prev_tag(current_tag)
     `git log --format="%D" #{current_tag}~1`
       .split("\n")
       .select { |line| line.start_with?("tag:") }
@@ -108,21 +120,25 @@ module GitRepo
       &.match(/tag: ([^,]+)/)&.captures&.first
   end
 
-  def self.load_releases
-    LoadReleases.new(git_repo: self).call
+  def load_releases
+    LoadReleases.new(
+      git_repo: self,
+      head_release_tag: options[:prepare_release]
+    ).call
   end
 
-  def self.load_merged_requests(release, code_hosting)
+  def load_merged_requests(release, code_hosting)
     LoadMergedRequests.new(
       release: release, code_hosting: code_hosting
     ).call
   end
 
   class LoadReleases
-    attr_reader :git_repo
+    attr_reader :git_repo, :head_release_tag
 
-    def initialize(git_repo:)
+    def initialize(git_repo:, head_release_tag:)
       @git_repo = git_repo
+      @head_release_tag = head_release_tag
     end
 
     def call
@@ -134,9 +150,19 @@ module GitRepo
         }
         .sort
         .reverse
+        .unshift(head_release)
+        .compact
     end
 
     private
+
+      def head_release
+        if head_release_tag
+          Release.build_head(tag: head_release_tag, label: head_release_tag)
+        else
+          nil
+        end
+      end
 
       def raw_git_tag_data
         `git tag --format='%(refname:short)|%(creatordate:iso8601)'`
@@ -169,7 +195,7 @@ module GitRepo
       end
 
       def tag_range
-        [release.tag, release.prev_tag].compact.join("...")
+        [release.git_ref, release.prev_tag].compact.join("...")
       end
 
       def is_merge_request?(raw_commit)
@@ -229,8 +255,8 @@ class PrintChangeLog
   private
 
     def print_release_heading(out, release)
-      out.puts("## [#{release.tag}](#{code_hosting.tag_url(release.tag)})")
-      out.puts("Released on #{format_date(release.date)}")
+      out.puts("## [#{release.label}](#{code_hosting.tag_url(release.tag)})")
+      out.puts("#{format_date(release.date)}")
     end
 
     def print_full_changelog_link(out, release)
@@ -272,8 +298,29 @@ class PrintChangeLog
     end
 end
 
+options = {
+  prepare_release: false
+}
+
+require 'optparse'
+OptionParser.new do |opts|
+  opts.banner = "Usage: git chlog [options]"
+
+  opts.on(
+    "--prepare-release=[TAG]",
+    "Add unreleased changes when preparing new release") do |tag|
+    options[:prepare_release] = tag || "HEAD"
+  end
+
+  opts.on("-h", "--help", "Prints this help") do
+    puts opts
+    exit
+  end
+end.parse!
+
+git_repo = GitRepo.new(options)
 PrintChangeLog.new(
-  code_hosting: CodeHosting.build(GitRepo.origin_remote_url),
-  git_repo: GitRepo,
+  code_hosting: CodeHosting.build(git_repo.origin_remote_url),
+  git_repo: git_repo,
   issue_tracker: IssueTracker::PivotalTracker
 ).call
