@@ -1,4 +1,9 @@
 # Change Log
+## [v0.2.1](https://github.com/teohm/git-chlog/tree/v0.2.1)
+
+[Full Changelog](https://github.com/teohm/git-chlog/compare/v0.2.0...v0.2.1)
+*  2017-11-03 - Downgrade regexp syntax to be compatible with ruby <2.4  [#7](https://github.com/teohm/git-chlog/pull/7)
+
 ## [v0.2.0](https://github.com/teohm/git-chlog/tree/v0.2.0)
 
 [Full Changelog](https://github.com/teohm/git-chlog/compare/v0.1.0...v0.2.0)

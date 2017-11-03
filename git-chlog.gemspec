@@ -9,8 +9,8 @@ Gem::Specification.new do |spec|
   spec.authors       = ["Huiming Teo"]
   spec.email         = ["teohuiming@gmail.com"]
 
-  spec.summary       = %q{Print changelog for PR-based git repo.}
-  spec.description   = %q{This gem provides a git custom command `git chlog` to print changelog with a list of merged pull-requests grouped by tags in a git repository.}
+  spec.summary       = %q{Generate changelog for any PR-based Git repository}
+  spec.description   = %q{A git custom command `git chlog` to print changelog with a list of merged pull-requests grouped by tags from any git repository.}
   spec.homepage      = "https://github.com/teohm/git-chlog"
   spec.license       = "MIT"
 
