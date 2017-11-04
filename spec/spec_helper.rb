@@ -1,5 +1,5 @@
 require "bundler/setup"
-require "git/chlog"
+require "git_chlog"
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
