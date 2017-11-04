@@ -1,5 +1,2 @@
-require "git_chlog/version"
-
-module GitChlog
-  autoload :Command, "git_chlog/command"
-end
+require_relative "git_chlog/version"
+require_relative "git_chlog/command"
