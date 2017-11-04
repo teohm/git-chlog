@@ -1,11 +1,11 @@
 # coding: utf-8
 lib = File.expand_path("../lib", __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require "git/chlog/version"
+require "git_chlog/version"
 
 Gem::Specification.new do |spec|
   spec.name          = "git-chlog"
-  spec.version       = Git::Chlog::VERSION
+  spec.version       = GitChlog::VERSION
   spec.authors       = ["Huiming Teo"]
   spec.email         = ["teohuiming@gmail.com"]
 

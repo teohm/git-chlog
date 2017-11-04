@@ -1,8 +1,8 @@
 require "spec_helper"
 
-RSpec.describe Git::Chlog do
+RSpec.describe GitChlog do
   it "has a version number" do
-    expect(Git::Chlog::VERSION).not_to be nil
+    expect(GitChlog::VERSION).not_to be nil
   end
 
   it "does something useful" do
